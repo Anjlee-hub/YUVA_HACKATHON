@@ -149,6 +149,18 @@ def reset_actions():
         "new_summary": factory_simulator.get_factory_summary()
     }
 
+@app.post("/api/factory/reset")
+def post_factory_reset():
+    factory_simulator.active_scenario = "normal"
+    factory_simulator.applied_actions.clear()
+    factory_simulator.data_level = 3
+    factory_simulator.generate_initial_state()
+    return {
+        "success": True,
+        "message": "Full factory demo state reset to normal baseline.",
+        "summary": factory_simulator.get_factory_summary()
+    }
+
 @app.get("/api/verification")
 def get_verification():
     return get_verified_savings_history()

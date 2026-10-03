@@ -363,7 +363,7 @@ def get_action_verification_matrix(action_id: Optional[str] = None) -> List[Pred
     ]
 
     items.append(PredictedVsActualVerification(
-        action_id="action_compressor_reduce_pressure",
+        action_id="action_compressor_lower_pressure_extreme",
         action_title="Lower Operating Pressure to 5.2 bar (UNSAFE CANDIDATE)",
         machine_name="Compressor 02 (Kaeser Screw 75kW)",
         lifecycle_stage="REJECTED",
@@ -385,6 +385,187 @@ def get_action_verification_matrix(action_id: Optional[str] = None) -> List[Pred
         evidence_sufficient=True,
         variance_explanation="REJECTED: Pressure drop to 5.2 bar breached DISA moulding machine 6.0 bar minimum pneumatic constraint, causing mould jamming and scrap increase.",
         verification_methodology="REJECTED — Physical Boundary Check Failed (Pressure Threshold 6.0 bar)"
+    ))
+
+    # Also keep legacy ID alias for test backward compatibility
+    items.append(PredictedVsActualVerification(
+        action_id="action_compressor_reduce_pressure",
+        action_title="Lower Operating Pressure to 5.2 bar (UNSAFE CANDIDATE)",
+        machine_name="Compressor 02 (Kaeser Screw 75kW)",
+        lifecycle_stage="REJECTED",
+        verification_status="REJECTED — CONSTRAINT VIOLATION",
+        is_production_safe_saving=False,
+        disclaimer="DEMO — SIMULATED POST-ACTION DATA",
+        real_deployment_note="In real deployment, verification requires actual sub-meter measurements under IPMVP Option B with baseline normalization.",
+        rows=unsafe_rows,
+        prediction_error_pct=41.3,
+        actual_kwh_saved=76.0,
+        actual_sec_improvement_pct=-8.4,
+        actual_cost_saved_inr=-142000.0,
+        actual_co2_avoided_kg=1630.0,
+        production_maintained=False,
+        quality_maintained=False,
+        machine_limits_maintained=False,
+        energy_reduction_positive=True,
+        risk_acceptable=False,
+        evidence_sufficient=True,
+        variance_explanation="REJECTED: Pressure drop to 5.2 bar breached DISA moulding machine 6.0 bar minimum pneumatic constraint, causing mould jamming and scrap increase.",
+        verification_methodology="REJECTED — Physical Boundary Check Failed (Pressure Threshold 6.0 bar)"
+    ))
+
+    # Action 4: TOD Scheduling
+    is_tod_applied = "action_tod_rescheduling" in applied
+    tod_rows = [
+        MetricComparisonRow(
+            metric="Daily Energy",
+            unit="kWh/day",
+            before=14350.0,
+            predicted=14350.0,
+            actual=14350.0,
+            variance_pct=0.0
+        ),
+        MetricComparisonRow(
+            metric="Blended Tariff Rate",
+            unit="₹/kWh",
+            before=8.20,
+            predicted=6.85,
+            actual=6.85,
+            variance_pct=0.0
+        ),
+        MetricComparisonRow(
+            metric="Daily Energy Cost",
+            unit="INR/day",
+            before=117670.0,
+            predicted=98298.0,
+            actual=98298.0,
+            variance_pct=0.0
+        ),
+        MetricComparisonRow(
+            metric="Daily Carbon Emissions",
+            unit="kg CO2/day",
+            before=10275.0,
+            predicted=10275.0,
+            actual=10275.0,
+            variance_pct=0.0
+        ),
+        MetricComparisonRow(
+            metric="Production Throughput",
+            unit="tons/day",
+            before=24.5,
+            predicted=24.5,
+            actual=24.5,
+            variance_pct=0.0
+        ),
+        MetricComparisonRow(
+            metric="Casting Quality Pass Rate",
+            unit="%",
+            before=98.8,
+            predicted=98.8,
+            actual=98.8,
+            variance_pct=0.0
+        )
+    ]
+
+    items.append(PredictedVsActualVerification(
+        action_id="action_tod_rescheduling",
+        action_title="Shift Primary Heat Pre-Melting to Night Off-Peak Slot (03:00 - 06:00)",
+        machine_name="Furnace 01 & 02 Melt System",
+        lifecycle_stage="VERIFIED" if is_tod_applied else "PREDICTED",
+        verification_status="VERIFIED PRODUCTION-SAFE SAVING" if is_tod_applied else "SIMULATED ACTUAL - PENDING VERIFICATION",
+        is_production_safe_saving=True,
+        disclaimer="DEMO — SIMULATED POST-ACTION DATA",
+        real_deployment_note="In real deployment, verification requires actual utility TOD smart meter revenue interval logs.",
+        rows=tod_rows,
+        prediction_error_pct=0.0,
+        actual_kwh_saved=0.0,
+        actual_sec_improvement_pct=0.0,
+        actual_cost_saved_inr=126000.0,
+        actual_co2_avoided_kg=0.0,
+        production_maintained=True,
+        quality_maintained=True,
+        machine_limits_maintained=True,
+        energy_reduction_positive=True,
+        risk_acceptable=True,
+        evidence_sufficient=True,
+        variance_explanation="Tariff savings verified against utility 15-minute TOD interval tariff structure with zero net change in net kWh or pouring times.",
+        verification_methodology="IPMVP Option C (Utility Revenue Billing Meter Interval Analysis)"
+    ))
+
+    # Action 5: Missing Sensor Withheld Action
+    missing_sensor_rows = [
+        MetricComparisonRow(
+            metric="Daily Energy",
+            unit="kWh/day",
+            before=336.0,
+            predicted=0.0,
+            actual=336.0,
+            variance_pct=0.0
+        ),
+        MetricComparisonRow(
+            metric="Vibration Acceleration",
+            unit="mm/s² RMS",
+            before=0.0,
+            predicted=0.0,
+            actual=0.0,
+            variance_pct=0.0
+        ),
+        MetricComparisonRow(
+            metric="Daily Energy Cost",
+            unit="INR/day",
+            before=2755.2,
+            predicted=0.0,
+            actual=2755.2,
+            variance_pct=0.0
+        ),
+        MetricComparisonRow(
+            metric="Daily Carbon Emissions",
+            unit="kg CO2/day",
+            before=240.6,
+            predicted=0.0,
+            actual=240.6,
+            variance_pct=0.0
+        ),
+        MetricComparisonRow(
+            metric="Production Throughput",
+            unit="tons/day",
+            before=24.5,
+            predicted=24.5,
+            actual=24.5,
+            variance_pct=0.0
+        ),
+        MetricComparisonRow(
+            metric="Casting Quality Pass Rate",
+            unit="%",
+            before=98.8,
+            predicted=98.8,
+            actual=98.8,
+            variance_pct=0.0
+        )
+    ]
+
+    items.append(PredictedVsActualVerification(
+        action_id="action_compressor_bearing_overhaul_unsupported",
+        action_title="Compressor Bearing Overhaul (WITHHELD — MISSING SENSOR)",
+        machine_name="Compressor 02 (Kaeser Screw 75kW)",
+        lifecycle_stage="WITHHELD",
+        verification_status="WITHHELD — INSUFFICIENT SENSOR EVIDENCE",
+        is_production_safe_saving=False,
+        disclaimer="DEMO — SIMULATED POST-ACTION DATA",
+        real_deployment_note="In real deployment, verification requires actual sub-meter and vibration telemetry after sensor installation.",
+        rows=missing_sensor_rows,
+        prediction_error_pct=0.0,
+        actual_kwh_saved=0.0,
+        actual_sec_improvement_pct=0.0,
+        actual_cost_saved_inr=0.0,
+        actual_co2_avoided_kg=0.0,
+        production_maintained=True,
+        quality_maintained=True,
+        machine_limits_maintained=True,
+        energy_reduction_positive=False,
+        risk_acceptable=False,
+        evidence_sufficient=False,
+        variance_explanation="Trust Protocol Withholding: Vibration sensor is not installed on Compressor 02 bearing housing. Diagnosis and intervention withheld to prevent ungrounded mechanical overhaul or false claims.",
+        verification_methodology="WITHHELD (Sensor Evidence Gating - Requires Accelerometer Deployment)"
     ))
 
     if action_id:

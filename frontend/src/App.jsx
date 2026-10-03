@@ -27,7 +27,8 @@ import {
   fetchReadiness,
   setProgressiveLevel,
   fetchSensorROI,
-  changeScenario
+  changeScenario,
+  resetDemo
 } from './api';
 
 export default function App() {
@@ -120,6 +121,14 @@ export default function App() {
         setSelectedActionId('action_tod_rescheduling');
         const res = await postWhatIfSimulation('action_tod_rescheduling');
         setSimulationResult(res);
+      } else if (scenario === 'missing_sensor') {
+        setSelectedActionId('action_compressor_bearing_overhaul_unsupported');
+        const res = await postWhatIfSimulation('action_compressor_bearing_overhaul_unsupported');
+        setSimulationResult(res);
+      } else {
+        setSelectedActionId('action_compressor_unloaded_shutdown');
+        const res = await postWhatIfSimulation('action_compressor_unloaded_shutdown');
+        setSimulationResult(res);
       }
     } catch (err) {
       console.error("Scenario change failed:", err);
@@ -164,6 +173,19 @@ export default function App() {
     }
   };
 
+  const handleResetDemo = async () => {
+    try {
+      await resetDemo();
+      await refreshAllData();
+      setSelectedActionId('action_compressor_unloaded_shutdown');
+      const res = await postWhatIfSimulation('action_compressor_unloaded_shutdown');
+      setSimulationResult(res);
+      setActiveTab('overview');
+    } catch (err) {
+      console.error("Reset demo failed:", err);
+    }
+  };
+
   const handleSetLevel = async (level) => {
     try {
       await setProgressiveLevel(level);
@@ -189,6 +211,7 @@ export default function App() {
         onOpenDemo={() => setIsDemoOpen(true)}
         onOpenConfig={() => setIsConfigOpen(true)}
         onResetActions={handleResetActions}
+        onResetDemo={handleResetDemo}
         activeScenario={activeScenario}
       />
 

@@ -19,6 +19,7 @@ export default function Header({
   onOpenDemo, 
   onOpenConfig, 
   onResetActions,
+  onResetDemo,
   activeScenario 
 }) {
   return (
@@ -127,18 +128,16 @@ export default function Header({
           </div>
         </div>
 
-        {/* Action Buttons: 2-Min Demo, SME Setup, Reset */}
+        {/* Action Buttons: Reset Demo, 2-Min Demo, SME Setup */}
         <div className="flex items-center gap-2">
-          {overview?.applied_actions?.length > 0 && (
-            <button
-              onClick={onResetActions}
-              className="px-2.5 py-1.5 text-xs rounded-lg border border-gray-700 bg-gray-800 text-gray-300 hover:bg-gray-700 flex items-center gap-1.5"
-              title="Reset simulated action optimizations back to baseline"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              Reset Actions
-            </button>
-          )}
+          <button
+            onClick={onResetDemo}
+            className="px-2.5 py-1.5 text-xs rounded-lg border border-gray-700 bg-gray-800/90 text-gray-300 hover:bg-gray-700 hover:text-white flex items-center gap-1.5 transition-colors"
+            title="Reset entire demo state to normal factory baseline"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            Reset Demo
+          </button>
 
           <button
             onClick={onOpenDemo}

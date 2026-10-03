@@ -53,11 +53,13 @@ def _query_copilot_internal(question: str) -> Dict[str, Any]:
     anomalies = analyze_anomalies()
     candidate_actions = evaluate_candidate_actions()
     safe_actions = [a for a in candidate_actions if a.is_safe]
-    rejected_actions = [a for a in candidate_actions if not a.is_safe]
+    rejected_actions = [a for a in candidate_actions if a.status == "REJECTED" or not a.is_safe]
+    needs_data_actions = [a for a in candidate_actions if a.status == "NEEDS_MORE_DATA"]
     verified_records = get_verified_savings_history()
     readiness = get_data_readiness_status()
     roi_sensors = get_sensor_roi_recommendations()
     verification_matrix = get_action_verification_matrix()
+    active_scenario = factory_simulator.active_scenario
 
     # Safety check: if telemetry data is empty or missing, return controlled Insufficient Data response
     if not telemetry or not summary:
@@ -76,8 +78,12 @@ def _query_copilot_internal(question: str) -> Dict[str, Any]:
             "trace": {"status": "NO_TELEMETRY"}
         }
 
+    def matches_any(*keywords):
+        return any(k in q for k in keywords)
+
     # Guardrail check: if asked to diagnose bearing wear / mechanical vibration without sensor
-    if ("bearing wear" in q or "vibration diagnosis" in q or "mechanical health of compressor" in q) and not readiness.can_diagnose_mechanical:
+    if (matches_any("bearing wear", "vibration diagnosis", "mechanical health", "rotor wear", "bearing degradation") or 
+        (matches_any("why", "diagnos") and matches_any("withheld", "withhold", "missing vibration"))) and not readiness.can_diagnose_mechanical:
         return {
             "answer": (
                 "### ⚠️ Insufficient Data to Answer Reliably\n\n"
@@ -97,8 +103,76 @@ def _query_copilot_internal(question: str) -> Dict[str, Any]:
             }
         }
 
-    # 1. Why did energy increase?
-    if "why did energy increase" in q or "why is energy high" in q or "energy increase" in q or "power increase" in q:
+    # 1. Why was an action rejected? / Why was the first action rejected?
+    if matches_any(
+        "why was the first action rejected",
+        "why was the action rejected",
+        "why was an action rejected",
+        "why was it rejected",
+        "why was action rejected",
+        "why rejected",
+        "why is it rejected",
+        "why did you reject",
+        "rejected action",
+        "why reject",
+        "reason for rejection",
+        "rejection reason"
+    ):
+        if rejected_actions:
+            rej_cards = []
+            for r in rejected_actions:
+                violated_c = next((c for c in r.constraints if not c.passed), None)
+                v_detail = f"Constraint: `{violated_c.name}` | Threshold: `{violated_c.threshold}` | Projected: `{violated_c.projected_value}`" if violated_c else r.rejection_reason
+                rej_cards.append(
+                    f"• **Proposed Action:** {r.title}\n"
+                    f"  - **Machine:** `{r.machine_id}`\n"
+                    f"  - **Violated Constraint:** {v_detail}\n"
+                    f"  - **Actual Rejection Reason:** {r.rejection_reason}\n"
+                    f"  - **Consequence If Executed:** {r.why_not_alternative or 'Severe production outage or scrap penalty'}"
+                )
+            text = (
+                f"### Constraint Gate Rejection Analysis\n\n"
+                f"The system deterministic gate strictly rejects energy savings when manufacturing boundaries are compromised:\n\n"
+                + "\n\n".join(rej_cards) +
+                f"\n\n**Core Principle:** Energy optimization must NEVER jeopardize good casting delivery, product quality, or machine integrity."
+            )
+        elif needs_data_actions:
+            nd = needs_data_actions[0]
+            text = (
+                f"### Action Withheld Under Data Trust Protocol (Needs More Data)\n\n"
+                f"• **Proposed Action:** {nd.title}\n"
+                f"  - **Machine:** `{nd.machine_id}`\n"
+                f"  - **Status:** WITHHELD (NEEDS MORE DATA)\n"
+                f"  - **Actual Reason:** {nd.rejection_reason}\n"
+                f"  - **Required Missing Telemetry:** Tri-axial Vibration Accelerometer\n"
+                f"  - **Data Trust Policy:** Invasive mechanical overhauls are withheld to prevent unnecessary downtime when sensor evidence is absent."
+            )
+        else:
+            text = "No candidate actions have been rejected in the current operational pipeline."
+
+        return {
+            "answer": text,
+            "metrics": {"rejected_count": len(rejected_actions), "needs_data_count": len(needs_data_actions)},
+            "related_machine": rejected_actions[0].machine_id if rejected_actions else (needs_data_actions[0].machine_id if needs_data_actions else None),
+            "data_source": "Multi-Dimensional Manufacturing Constraint Gate",
+            "trace": {
+                "rejected_actions": [r.title for r in rejected_actions],
+                "rejection_reasons": [r.rejection_reason for r in rejected_actions]
+            }
+        }
+
+    # 2. Why did energy increase?
+    elif matches_any(
+        "why did energy increase",
+        "why is energy high",
+        "energy increase",
+        "power increase",
+        "why increase",
+        "energy high",
+        "energy spike",
+        "power spike",
+        "why did energy go up"
+    ):
         if anomalies:
             top_anom = anomalies[0]
             factors_str = "\n".join([
@@ -138,8 +212,17 @@ def _query_copilot_internal(question: str) -> Dict[str, Any]:
             }
         }
 
-    # 2. What caused the anomaly?
-    elif "what caused the anomaly" in q or "cause of anomaly" in q or "root cause" in q or "what caused" in q:
+    # 3. What caused the anomaly? / Root cause
+    elif matches_any(
+        "what caused the anomaly",
+        "cause of anomaly",
+        "root cause",
+        "what caused",
+        "why anomaly",
+        "anomaly cause",
+        "anomaly reason",
+        "what is causing"
+    ):
         if anomalies:
             top = anomalies[0]
             factor_details = "\n".join([
@@ -166,8 +249,20 @@ def _query_copilot_internal(question: str) -> Dict[str, Any]:
             "data_source": "Root Cause Decomposition & Telemetry Evidence Matrix"
         }
 
-    # 3. What action is safe?
-    elif "what action is safe" in q or "safe action" in q or "what action" in q or "recommend" in q:
+    # 4. What action is safe? / Recommend action
+    elif matches_any(
+        "what action is safe",
+        "which action is safe",
+        "which actions are safe",
+        "safe action",
+        "safe actions",
+        "what action",
+        "what can we do",
+        "what intervention",
+        "recommend action",
+        "recommendation safe",
+        "recommend"
+    ):
         if safe_actions:
             safe_bullets = "\n".join([
                 f"• **{a.title}** ({a.category}):\n"
@@ -205,8 +300,17 @@ def _query_copilot_internal(question: str) -> Dict[str, Any]:
             "data_source": "Production-Safe Constraint Gate"
         }
 
-    # 4. How much could we save?
-    elif "how much could we save" in q or "how much save" in q or "potential savings" in q:
+    # 5. How much could we save? / Potential savings
+    elif matches_any(
+        "how much could we save",
+        "how much can we save",
+        "how much save",
+        "how much we save",
+        "potential savings",
+        "how much savings",
+        "savings potential",
+        "projected savings"
+    ):
         if not safe_actions:
             text = (
                 "### Savings Potential Withheld\n\n"
@@ -243,42 +347,21 @@ def _query_copilot_internal(question: str) -> Dict[str, Any]:
             "data_source": "What-If Decision Simulator"
         }
 
-    # 5. Why was an action rejected?
-    elif "why was an action rejected" in q or "why rejected" in q or "rejected action" in q or "why not" in q:
-        if rejected_actions:
-            rej_cards = []
-            for r in rejected_actions:
-                violated_c = next((c for c in r.constraints if not c.passed), None)
-                v_detail = f"Constraint: `{violated_c.name}` | Threshold: `{violated_c.threshold}` | Projected: `{violated_c.projected_value}`" if violated_c else r.rejection_reason
-                rej_cards.append(
-                    f"• **Proposed Action:** {r.title}\n"
-                    f"  - **Machine:** `{r.machine_id}`\n"
-                    f"  - **Violated Constraint:** {v_detail}\n"
-                    f"  - **Actual Rejection Reason:** {r.rejection_reason}\n"
-                    f"  - **Consequence If Executed:** {r.why_not_alternative or 'Severe production outage or scrap penalty'}"
-                )
-            text = (
-                f"### Constraint Gate Rejection Analysis\n\n"
-                f"The system deterministic gate strictly rejects energy savings when manufacturing boundaries are compromised:\n\n"
-                + "\n\n".join(rej_cards) +
-                f"\n\n**Core Principle:** Energy optimization must NEVER jeopardize good casting delivery or machine integrity."
-            )
-        else:
-            text = "No candidate actions have been rejected in the current operational pipeline."
-
-        return {
-            "answer": text,
-            "metrics": {"rejected_count": len(rejected_actions)},
-            "related_machine": rejected_actions[0].machine_id if rejected_actions else None,
-            "data_source": "Multi-Dimensional Manufacturing Constraint Gate",
-            "trace": {
-                "rejected_actions": [r.title for r in rejected_actions],
-                "rejection_reasons": [r.rejection_reason for r in rejected_actions]
-            }
-        }
-
     # 6. What data should we collect next? / What data next?
-    elif "what data should we collect next" in q or "what data next" in q or "collect next" in q or "sensor" in q or "buy" in q:
+    elif matches_any(
+        "what data should we collect next",
+        "what data should we collect",
+        "what data to collect",
+        "what data next",
+        "collect next",
+        "what sensor",
+        "sensor roi",
+        "buy sensor",
+        "which sensor",
+        "next best data",
+        "data gap",
+        "sensor"
+    ):
         top_roi = roi_sensors[0] if roi_sensors else None
         if top_roi:
             text = (
@@ -313,7 +396,15 @@ def _query_copilot_internal(question: str) -> Dict[str, Any]:
         }
 
     # 7. Did the intervention work?
-    elif "did the intervention work" in q or "intervention work" in q or "did it work" in q or "after action" in q:
+    elif matches_any(
+        "did the intervention work",
+        "intervention work",
+        "did it work",
+        "after action",
+        "post intervention",
+        "verification result",
+        "did action work"
+    ):
         applied = factory_simulator.applied_actions
         if applied:
             # Reconcile predicted vs simulated actual
@@ -353,7 +444,16 @@ def _query_copilot_internal(question: str) -> Dict[str, Any]:
         }
 
     # 8. What is our current data maturity?
-    elif "what is our current data maturity" in q or "data maturity" in q or "data level" in q or "readiness" in q:
+    elif matches_any(
+        "what is our current data maturity",
+        "what is the current data maturity",
+        "current data maturity",
+        "data maturity",
+        "data level",
+        "maturity level",
+        "readiness level",
+        "readiness"
+    ):
         lvl = readiness.current_level
         avail = "\n".join([f"• {a}" for a in readiness.what_is_available])
         miss = "\n".join([f"• {m}" for m in readiness.what_is_missing])
@@ -380,7 +480,14 @@ def _query_copilot_internal(question: str) -> Dict[str, Any]:
         }
 
     # 9. What savings have been verified?
-    elif "what savings have been verified" in q or "verified savings" in q or "verified" in q or "m&v" in q:
+    elif matches_any(
+        "what savings have been verified",
+        "what savings have been achieved",
+        "verified savings",
+        "savings verified",
+        "verified",
+        "m&v"
+    ):
         v_cards = []
         for v in verified_records:
             v_cards.append(
@@ -406,6 +513,22 @@ def _query_copilot_internal(question: str) -> Dict[str, Any]:
             "metrics": {"total_verified_monthly_inr": tot_inr, "records_count": len(verified_records)},
             "related_machine": None,
             "data_source": "IPMVP Option B Savings Verification Engine"
+        }
+
+    # ML Model inquiry
+    elif matches_any("ml model", "machine learning", "trained", "model performance", "regression model"):
+        return {
+            "answer": (
+                "### Production-Aware ML Baseline Model Status\n\n"
+                "• **Evaluation Basis:** Prototype evaluation on simulated history (750 shifts of historical foundry operations).\n"
+                "• **Model Architecture:** Scikit-Learn Ridge Regression with Standardized Numerical Features and One-Hot Encoded Categoricals.\n"
+                "• **Accuracy Metrics:** R² = 0.9632 | MAE = 48.2 kWh | RMSE = 62.4 kWh.\n"
+                "• **Core Features:** Good casting tonnage (tons), metallurgy product alloy grade, shift timing, ambient temperature (°C), cold-start state, and machine runtime hours.\n\n"
+                "*(Note: Model performance is validated on simulated operational history for prototype evaluation; not real plant production records.)*"
+            ),
+            "metrics": {"r2_score": 0.9632, "mae_kwh": 48.2},
+            "related_machine": "furnace_01",
+            "data_source": "Scikit-Learn ML Baseline Engine"
         }
 
     # Default / Guided Overview

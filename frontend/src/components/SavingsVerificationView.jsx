@@ -208,7 +208,9 @@ export default function SavingsVerificationView({ verifiedRecords, onActionAppro
                   >
                     {m.action_id === 'action_compressor_unloaded_shutdown' ? 'Compressor 02 (Safe)' : 
                      m.action_id === 'action_furnace_refractory_patch' ? 'Furnace 02 (Safe)' : 
-                     'Compressor 02 (Unsafe Rejection Demo)'}
+                     m.action_id === 'action_tod_rescheduling' ? 'TOD Rescheduling (Safe)' :
+                     m.action_id === 'action_compressor_bearing_overhaul_unsupported' ? 'Missing Sensor (Withheld)' :
+                     'Compressor 02 (Unsafe Rejection)'}
                   </button>
                 ))}
               </div>

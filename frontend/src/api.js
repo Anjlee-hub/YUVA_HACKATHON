@@ -60,6 +60,15 @@ export async function resetSimulationActions() {
   return res.json();
 }
 
+export async function resetDemo() {
+  const res = await fetch(`${API_BASE}/factory/reset`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' }
+  });
+  if (!res.ok) throw new Error('Failed to reset full demo state');
+  return res.json();
+}
+
 export async function fetchVerifiedSavings() {
   const res = await fetch(`${API_BASE}/verification`);
   if (!res.ok) throw new Error('Failed to fetch verified savings');

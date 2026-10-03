@@ -467,6 +467,69 @@ def evaluate_decision_pipeline(
             )
         ]
 
+        # Candidate 5B: Emergency Peak Shedding by Shutting Off Pouring Line Conveyor (UNSAFE OPTIMIZATION)
+        tod_unsafe_constraints = [
+            ConstraintCheck(
+                name="DISA Moulding Line Continuous Feed",
+                threshold="0% Line Starvation",
+                projected_value="-25.0% Throughput Collapse",
+                passed=False,
+                violation_detail="VIOLATION: Halting primary melting during peak hours without buffer starves the moulding line, halting pouring operations."
+            ),
+            ConstraintCheck(
+                name="Mahindra Automotive Delivery Dispatch SLA",
+                threshold="0 hrs delay",
+                projected_value="+4.0 hrs dispatch breach",
+                passed=False,
+                violation_detail="VIOLATION: Delays 24.5-ton casting dispatch past the customer delivery window, triggering contractual delivery penalty."
+            ),
+            ConstraintCheck(
+                name="Molten Iron Liquidus Superheat in Transfer Ladles",
+                threshold="≥ 1410°C",
+                projected_value="1375°C (Ladle lip freezing)",
+                passed=False,
+                violation_detail="VIOLATION: Metal cools in crane transfer ladles below liquidus temperature, causing severe cold-shuts and ladle skulling."
+            )
+        ]
+
+        candidates.append(ActionEvaluation(
+            id="action_tod_emergency_curtailment",
+            action_id="action_tod_emergency_curtailment",
+            machine_id="furnace_01",
+            anomaly_id="anomaly_tod_peak_tariff",
+            title="Candidate Action 5B: Peak Shift Melting Curtailment Without Holding Buffer",
+            category="Emergency Peak Shedding",
+            description="Completely shut down Furnace 01 during peak tariff hours (18:00 - 22:00) without pre-melting molten buffer.",
+            proposed_change="Completely shut down Furnace 01 during peak tariff hours (18:00 - 22:00) without pre-melting molten buffer.",
+            required_data=["Main Feeder Power Meter", "Weighbridge Batch Log"],
+            energy_savings_pct=14.0,
+            expected_energy_kwh_per_day=420.0,
+            expected_energy_change={"kwh_per_day": 420.0, "pct": 14.0},
+            monthly_cost_savings_inr=-48000.0, # Negative due to delivery penalties
+            expected_cost_change=-48000.0,
+            co2_reduction_kg=3600.0,
+            expected_co2_change=3600.0,
+            production_impact_pct=-25.0,
+            production_impact={"throughput_loss_pct": 25.0, "status": "BREACH"},
+            quality_impact_pct=-18.5,
+            quality_impact={"scrap_surge_pct": 18.5, "status": "BREACH"},
+            deadline_impact_hrs=4.0,
+            machine_health_risk="High",
+            risk_level="High",
+            constraints=tod_unsafe_constraints,
+            is_safe=False,
+            status="REJECTED",
+            is_production_safe_savings=False,
+            rejection_reason="REJECTED BY CONSTRAINT GATE: Shutting down primary induction melting without buffer starves the moulding line (-25.0% throughput), delays dispatch by +4.0 hrs, and freezes transfer ladles below 1410°C.",
+            confidence_score=96.0,
+            confidence=96.0,
+            implementation_complexity="Instant Config",
+            implementation_time="Instant Shutdown",
+            why_this_action="Peak power curtailment avoids the ₹10.80/kWh rate, but starving the line collapses daily production output.",
+            why_not_alternative="Emergency peak shedding without buffer was rejected because it causes +4.0 hrs delivery delay and severe ladle skulling. Shifting pre-melting to night off-peak (03:00 - 06:00) achieves tariff savings without production loss.",
+            action_state="REJECTED"
+        ))
+
         candidates.append(ActionEvaluation(
             id="action_tod_rescheduling",
             action_id="action_tod_rescheduling",
@@ -882,6 +945,275 @@ def simulate_decision_action(action_id: str) -> Dict[str, Any]:
             "metrics": [m.model_dump() for m in metrics]
         }
 
+    # Action 1: Compressor 02 Extreme Pressure Drop (UNSAFE CANDIDATE)
+    elif action_id in ["action_compressor_lower_pressure_extreme", "action_compressor_reduce_pressure"]:
+        c2 = telemetry.get("compressor_02", {})
+        baseline_kwh = c2.get("energy_today_kwh", 336.0)
+        simulated_kwh = round(baseline_kwh - 70.0, 1)
+
+        metrics = [
+            SimulationComparison(
+                metric="Compressor 02 Daily Energy",
+                unit="kWh/day",
+                baseline=baseline_kwh,
+                simulated=simulated_kwh,
+                pct_change=-8.4,
+                is_favorable=True
+            ),
+            SimulationComparison(
+                metric="Moulding Line Pneumatic Squeeze Pressure",
+                unit="bar",
+                baseline=7.4,
+                simulated=5.2,
+                pct_change=-29.7,
+                is_favorable=False
+            ),
+            SimulationComparison(
+                metric="Moulding Line Pneumatic Throughput",
+                unit="Moulds/hour",
+                baseline=120.0,
+                simulated=105.0,
+                pct_change=-12.5,
+                is_favorable=False
+            ),
+            SimulationComparison(
+                metric="Casting Scrap Rate Surge",
+                unit="%",
+                baseline=1.2,
+                simulated=9.2,
+                pct_change=666.7,
+                is_favorable=False
+            ),
+            SimulationComparison(
+                metric="Daily Net Financial Balance (Energy Saved - Scrap Losses)",
+                unit="₹/day",
+                baseline=0.0,
+                simulated=-4730.0,
+                pct_change=-100.0,
+                is_favorable=False
+            )
+        ]
+
+        return {
+            "action_id": action_id,
+            "action_title": "Candidate Action 1: Lower Shop Header Pressure to 5.2 bar (UNSAFE CANDIDATE)",
+            "machine_id": "compressor_02",
+            "machine_name": "Compressor 02 (Kaeser Screw 75kW)",
+            "status": "SIMULATED_REJECTED",
+            "is_verified": False,
+            "verification_disclaimer": "WHAT-IF SIMULATION - NOT YET VERIFIED",
+            "is_production_safe_savings": False,
+            "energy_comparison": {
+                "current_kwh_day": baseline_kwh,
+                "predicted_kwh_day": simulated_kwh,
+                "kwh_saved_day": 70.0,
+                "pct_change": -8.4
+            },
+            "cost_comparison": {
+                "current_cost_month_inr": round(baseline_kwh * 30 * 8.20, 0),
+                "predicted_cost_month_inr": round(simulated_kwh * 30 * 8.20, 0),
+                "savings_month_inr": -142000.0, # Negative due to scrap penalty
+                "pct_change": -8.4
+            },
+            "co2_comparison": {
+                "current_emissions_kg_month": round(baseline_kwh * 30 * 0.716, 0),
+                "predicted_emissions_kg_month": round(simulated_kwh * 30 * 0.716, 0),
+                "reduction_kg_month": 960.0,
+                "pct_change": -8.4
+            },
+            "production_comparison": {
+                "current_throughput": "120 moulds/hr (24.5 tons/day)",
+                "predicted_throughput": "105 moulds/hr (21.4 tons/day)",
+                "change_pct": -12.5,
+                "throughput_retained": False
+            },
+            "quality_comparison": {
+                "current_status": "97.4% Pass Rate",
+                "predicted_status": "89.4% Pass Rate (Scrap surge: soft moulds)",
+                "status": "BREACH"
+            },
+            "risk_level": "High",
+            "confidence_pct": 94.0,
+            "payback_period_days": 0,
+            "production_throughput_retained": False,
+            "quality_tolerance_satisfied": False,
+            "recommendation_verdict": "REJECTED BY CONSTRAINT GATE (Violates DISA Moulding Pressure min 6.0 bar)",
+            "why_this_action": "Compressor power scales with discharge pressure, but dropping pressure to 5.2 bar impairs pneumatic actuators across the shop floor.",
+            "why_not_alternative": "Reducing pressure to 5.2 bar was rejected because the moulding process requires a minimum pressure of 6.0 bar. Squeeze cylinders stall below 6.0 bar, causing scrap parts.",
+            "metrics": [m.model_dump() for m in metrics]
+        }
+
+    # Action 3: Lower Furnace 02 Holding Temperature to 1350°C (UNSAFE CANDIDATE)
+    elif action_id == "action_furnace_lower_temp_unsafe":
+        f2 = telemetry.get("furnace_02", {})
+        baseline_kwh = f2.get("energy_today_kwh", 624.0)
+        simulated_kwh = round(baseline_kwh - 42.0, 1)
+
+        metrics = [
+            SimulationComparison(
+                metric="Furnace 02 Molten Holding Power",
+                unit="kW",
+                baseline=78.0,
+                simulated=72.7,
+                pct_change=-6.8,
+                is_favorable=True
+            ),
+            SimulationComparison(
+                metric="Ladle Lip Pouring Temperature",
+                unit="°C",
+                baseline=1420.0,
+                simulated=1350.0,
+                pct_change=-4.9,
+                is_favorable=False
+            ),
+            SimulationComparison(
+                metric="Casting Metallurgical Scrap Rate",
+                unit="%",
+                baseline=1.2,
+                simulated=15.4,
+                pct_change=1183.3,
+                is_favorable=False
+            ),
+            SimulationComparison(
+                metric="Daily Net Financial Balance",
+                unit="₹/day",
+                baseline=0.0,
+                simulated=-9800.0,
+                pct_change=-100.0,
+                is_favorable=False
+            )
+        ]
+
+        return {
+            "action_id": action_id,
+            "action_title": "Candidate Action 3: Lower Furnace 02 Holding Temperature to 1350°C (UNSAFE CANDIDATE)",
+            "machine_id": "furnace_02",
+            "machine_name": "Furnace 02 (Holding Furnace 450kW)",
+            "status": "SIMULATED_REJECTED",
+            "is_verified": False,
+            "verification_disclaimer": "WHAT-IF SIMULATION - NOT YET VERIFIED",
+            "is_production_safe_savings": False,
+            "energy_comparison": {
+                "current_kwh_day": baseline_kwh,
+                "predicted_kwh_day": simulated_kwh,
+                "kwh_saved_day": 42.0,
+                "pct_change": -6.8
+            },
+            "cost_comparison": {
+                "current_cost_month_inr": round(baseline_kwh * 30 * 8.20, 0),
+                "predicted_cost_month_inr": round(simulated_kwh * 30 * 8.20, 0),
+                "savings_month_inr": -185000.0, # Negative due to cold-shut scrap
+                "pct_change": -6.8
+            },
+            "co2_comparison": {
+                "current_emissions_kg_month": round(baseline_kwh * 30 * 0.716, 0),
+                "predicted_emissions_kg_month": round(simulated_kwh * 30 * 0.716, 0),
+                "reduction_kg_month": 2600.0,
+                "pct_change": -6.8
+            },
+            "production_comparison": {
+                "current_throughput": "24.5 tons/day",
+                "predicted_throughput": "23.0 tons/day",
+                "change_pct": -6.0,
+                "throughput_retained": False
+            },
+            "quality_comparison": {
+                "current_status": "97.4% Pass Rate",
+                "predicted_status": "83.2% Pass Rate (Cold-shut scrap surge)",
+                "status": "BREACH"
+            },
+            "risk_level": "High",
+            "confidence_pct": 98.0,
+            "payback_period_days": 0,
+            "production_throughput_retained": False,
+            "quality_tolerance_satisfied": False,
+            "recommendation_verdict": "REJECTED BY CONSTRAINT GATE (Sub-liquidus iron creates casting misruns)",
+            "why_this_action": "Thermodynamic radiation loss is proportional to T^4, so reducing bath temp saves holding kWh, but freezes the pouring stream.",
+            "why_not_alternative": "Lowering holding temperature to 1350°C was rejected because the metallurgical specification requires ≥ 1410°C at the pouring nozzle.",
+            "metrics": [m.model_dump() for m in metrics]
+        }
+
+    # Action 5B: TOD Peak Melting Curtailment Without Buffer (UNSAFE CANDIDATE)
+    elif action_id == "action_tod_emergency_curtailment":
+        metrics = [
+            SimulationComparison(
+                metric="Peak Hours kWh Draw (18:00 - 22:00)",
+                unit="kWh",
+                baseline=420.0,
+                simulated=0.0,
+                pct_change=-100.0,
+                is_favorable=True
+            ),
+            SimulationComparison(
+                metric="Daily Casting Throughput",
+                unit="Tons/day",
+                baseline=24.5,
+                simulated=18.4,
+                pct_change=-25.0,
+                is_favorable=False
+            ),
+            SimulationComparison(
+                metric="Customer Dispatch Lead Time Delay",
+                unit="Hours",
+                baseline=0.0,
+                simulated=4.0,
+                pct_change=100.0,
+                is_favorable=False
+            )
+        ]
+
+        return {
+            "action_id": action_id,
+            "action_title": "Candidate Action 5B: Peak Shift Melting Curtailment Without Holding Buffer (UNSAFE CANDIDATE)",
+            "machine_id": "furnace_01",
+            "machine_name": "Furnace 01 Primary Melter",
+            "status": "SIMULATED_REJECTED",
+            "is_verified": False,
+            "verification_disclaimer": "WHAT-IF SIMULATION - NOT YET VERIFIED",
+            "is_production_safe_savings": False,
+            "energy_comparison": {"current_kwh_day": 14350.0, "predicted_kwh_day": 13930.0, "kwh_saved_day": 420.0, "pct_change": -2.9},
+            "cost_comparison": {"current_cost_month_inr": 1240000.0, "predicted_cost_month_inr": 1288000.0, "savings_month_inr": -48000.0, "pct_change": 3.9},
+            "co2_comparison": {"current_emissions_kg_month": 108116.0, "predicted_emissions_kg_month": 104950.0, "reduction_kg_month": 3166.0, "pct_change": -2.9},
+            "production_comparison": {"current_throughput": "24.5 tons/day", "predicted_throughput": "18.4 tons/day", "change_pct": -25.0, "throughput_retained": False},
+            "quality_comparison": {"current_status": "97.4% Pass Rate", "predicted_status": "78.9% Pass Rate (Ladle skulling)", "status": "BREACH"},
+            "risk_level": "High",
+            "confidence_pct": 96.0,
+            "payback_period_days": 0,
+            "production_throughput_retained": False,
+            "quality_tolerance_satisfied": False,
+            "recommendation_verdict": "REJECTED BY CONSTRAINT GATE (Causes 25% throughput loss and 4 hr delivery delay)",
+            "why_this_action": "Peak power curtailment avoids the ₹10.80/kWh rate, but starving the line collapses daily production output.",
+            "why_not_alternative": "Emergency peak shedding without buffer was rejected because it causes +4.0 hrs delivery delay and severe ladle skulling.",
+            "metrics": [m.model_dump() for m in metrics]
+        }
+
+    # Action 6: Mechanical Overhaul Withheld Due to Missing Sensor
+    elif action_id == "action_compressor_bearing_overhaul_unsupported":
+        return {
+            "action_id": action_id,
+            "action_title": "Candidate Action 6: Mechanical Air-End Bearing Overhaul (WITHHELD)",
+            "machine_id": "compressor_02",
+            "machine_name": "Compressor 02 (Kaeser Screw 75kW)",
+            "status": "SIMULATED_WITHHELD",
+            "is_verified": False,
+            "verification_disclaimer": "DIAGNOSIS WITHHELD — MISSING VIBRATION TELEMETRY",
+            "is_production_safe_savings": False,
+            "energy_comparison": {"current_kwh_day": 336.0, "predicted_kwh_day": 274.0, "kwh_saved_day": 62.0, "pct_change": -18.5},
+            "cost_comparison": {"current_cost_month_inr": 82656.0, "predicted_cost_month_inr": 67456.0, "savings_month_inr": 15200.0, "pct_change": -18.5},
+            "co2_comparison": {"current_emissions_kg_month": 7217.0, "predicted_emissions_kg_month": 5887.0, "reduction_kg_month": 1330.0, "pct_change": -18.5},
+            "production_comparison": {"current_throughput": "24.5 tons/day", "predicted_throughput": "0.0 tons/day (8 hr outage)", "change_pct": -100.0, "throughput_retained": False},
+            "quality_comparison": {"current_status": "Evidence Incomplete", "predicted_status": "Diagnosis Withheld", "status": "WITHHELD"},
+            "risk_level": "Medium",
+            "confidence_pct": 42.0,
+            "payback_period_days": 180,
+            "production_throughput_retained": False,
+            "quality_tolerance_satisfied": False,
+            "recommendation_verdict": "WITHHELD UNDER DATA TRUST PROTOCOL (Install vibration sensor first)",
+            "why_this_action": "Elevated power (+19.2%) detected, but mechanical telemetry is missing. The system withholds diagnosis and recommends installing a ₹22k vibration accelerometer before performing teardown.",
+            "why_not_alternative": "Action held in 'NEEDS MORE DATA' state to prevent false maintenance actions.",
+            "metrics": []
+        }
+
     else:
         # Fallback evaluation
         return {
@@ -951,6 +1283,7 @@ def get_decision_scenarios() -> List[Dict[str, Any]]:
             "description": "Exploits BESCOM ₹5.40/kWh night off-peak tariff vs ₹10.80/kWh peak rate.",
             "key_constraint": "Holding buffer capacity ≤ 8.0 tons",
             "safe_action": "Candidate Action 5: Shift Primary Heat Pre-Melting to Night Off-Peak Slot (03:00 - 06:00)",
-            "rejected_action": None
+            "rejected_action": "Candidate Action 5B: Daytime Melting Curtailment Without Buffer (Starves Moulding Line & Delays Dispatch)"
         }
     ]
+
