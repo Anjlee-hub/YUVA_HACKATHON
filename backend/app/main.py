@@ -41,7 +41,10 @@ app = FastAPI(
 # CORS middleware for local Vite frontend dev server
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+    "http://localhost:5173",
+    "https://production-safe-energy.vercel.app"
+],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
